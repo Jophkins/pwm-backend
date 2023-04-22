@@ -1,13 +1,13 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import bcrypt, {hash} from 'bcrypt';
-import {check, validationResult} from "express-validator";
 
-import {registerValidation} from './validations/auth.js'
-import UserModel from './models/User.js'
+import * as UserController from './controllers/UserController.js';
+import * as PostController from './controllers/PostController.js';
+
+import {registerValidation, loginValidation, postCreateValidation} from './validations.js'
 import checkAuth from "./utils/checkAuth.js";
 
+const PORT = 7000;
 mongoose.connect('mongodb+srv://admin:5455@pwm-cluster0.xj28tho.mongodb.net/blog?retryWrites=true&w=majority')
   .then(r => console.log(' DB is ok'))
   .catch(err => console.log('DB error', err));
@@ -16,106 +16,20 @@ const app = express();
 
 app.use(express.json());
 
-app.post('/auth/login', async (req, res) => {
-  try {
-    const user = await UserModel.findOne({email: req.body.email});
+app.post('/auth/login', loginValidation, UserController.login);
+app.post('/auth/registration', registerValidation, UserController.register);
+app.get('/auth/me', checkAuth, UserController.getUser);
 
-    if (!user) {
-      return res.status(404).json({
-        message: 'User not found'
-      });
-    }
+app.get('/posts', PostController.getAll);
+app.get('/posts/:id', PostController.getOne);
+app.post('/posts', checkAuth, postCreateValidation, PostController.create);
+app.delete('/posts/:id', checkAuth, PostController.remove);
+app.patch('/posts/:id', checkAuth, PostController.update);
 
-    const isValidPass = await bcrypt.compare(req.body.password, user._doc.passwordHash);
-
-    if (!isValidPass) {
-      return res.status(400).json({
-        message: 'Incorrect login or password'
-      });
-    }
-
-    const token = jwt.sign({
-      _id: user._id,
-    }, 'secret123', {expiresIn: '30d'});
-
-    const {passwordHash, ...userData} = user._doc;
-
-    res.json({
-      ...userData,
-      token
-    });
-
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: 'Authorization failed'
-    });
-  }
-})
-
-app.post('/auth/registration', registerValidation, async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json(errors.array())
-    }
-
-    const password = req.body.password;
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-
-    const doc = new UserModel({
-      email: req.body.email,
-      passwordHash: hash,
-      fullName: req.body.fullName,
-      avatarUrl: req.body.avatarUrl
-    });
-
-    const user = await doc.save();
-
-    const token = jwt.sign({
-      _id: user._id,
-    }, 'secret123', {expiresIn: '30d'});
-
-    const {passwordHash, ...userData} = user._doc;
-
-    res.json({
-      ...userData,
-      token
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: 'Registration failed'
-    });
-  }
-});
-
-app.get('/auth/me', checkAuth, async (req, res) => {
-  try {
-    const user = await UserModel.findById(req.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        message: 'User not found'
-      });
-    }
-
-    const {passwordHash, ...userData} = user._doc;
-
-    res.json({userData});
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: 'Access restricted'
-    });
-  }
-});
-
-app.listen(7000, (err) => {
+app.listen(PORT, (err) => {
   if (err) {
     return console.log(err)
   }
-  console.log('ok');
+  console.log(`Server status ...ok. Server PORT is ${PORT}`);
 });
 

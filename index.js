@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import multer from 'multer';
 
 import * as UserController from './controllers/UserController.js';
 import * as PostController from './controllers/PostController.js';
@@ -14,14 +15,42 @@ mongoose.connect('mongodb+srv://admin:5455@pwm-cluster0.xj28tho.mongodb.net/blog
 
 const app = express();
 
+const storage = multer.diskStorage({
+  destination: (_, __, cb) => {
+    cb(null, 'uploads')
+  },
+  filename: (_, file, cb) => {
+    cb(null, file.originalname)
+  },
+});
+
+const upload = multer({ storage });
+
 app.use(express.json());
+
+app.use('/uploads', express.static('uploads'));
 
 app.post('/auth/login', loginValidation, UserController.login);
 app.post('/auth/registration', registerValidation, UserController.register);
+
 app.get('/auth/me', checkAuth, UserController.getUser);
+
+app.post('/upload', checkAuth, upload.single('image'), (req, res) => {
+  try {
+    res.json({
+      url: `/uploads/${req.file.originalname}`,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: 'Image upload failure'
+    });
+  }
+})
 
 app.get('/posts', PostController.getAll);
 app.get('/posts/:id', PostController.getOne);
+
 app.post('/posts', checkAuth, postCreateValidation, PostController.create);
 app.delete('/posts/:id', checkAuth, PostController.remove);
 app.patch('/posts/:id', checkAuth, PostController.update);

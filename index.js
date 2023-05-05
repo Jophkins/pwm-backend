@@ -9,7 +9,7 @@ import {registerValidation, loginValidation, postCreateValidation} from './valid
 import {handleValidationErrors, checkAuth} from "./utils/index.js";
 
 const PORT = 7000;
-mongoose.connect('mongodb+srv://admin:5455@pwm-cluster0.xj28tho.mongodb.net/blog?retryWrites=true&w=majority')
+mongoose.connect('mongodb://admin:5455@db.pitwithmagic.com:27017/blog')
   .then(r => console.log(' DB is ok'))
   .catch(err => console.log('DB error', err));
 
